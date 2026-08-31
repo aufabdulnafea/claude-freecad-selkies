@@ -3,13 +3,15 @@ FROM lsiobase/selkies:debiantrixie
 ENV DEBIAN_FRONTEND=noninteractive \
     HOME=/config
 
-# 1. Install system dependencies, FreeCAD, Alacritty, Tmux, git, and python tools
+# 1. Install system dependencies, FreeCAD, Alacritty, Tmux, window utilities, git, and python tools
 RUN apt-get update && apt-get install -y \
     freecad \
     git \
     curl \
     alacritty \
     tmux \
+    wmctrl \
+    xdotool \
     python3-pip \
     python3-full \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
@@ -58,7 +60,7 @@ background = "#1e1e2e"
 foreground = "#cdd6f4"
 EOF
 
-# 6. Configure Tmux to host Claude without any status bars
+# 6. Configure Tmux to host Claude without status bars
 RUN mkdir -p /config
 COPY <<-'EOF' /config/.tmux.conf
 set -g mouse on
@@ -66,36 +68,34 @@ set -g status off
 new-session -d 'claude'
 EOF
 
-# 7. Custom Openbox autostart script that bypasses single-app fullscreen enforcement 
-# and explicitly coordinates dual-window side-by-side geometry placement.
-RUN mkdir -p /config/.config/openbox
-COPY <<-'EOF' /config/.config/openbox/autostart
-# Kill any lingering defaults if applicable
-pkill openbox-window-wrapper || true
+# 7. Provide a custom startwm.sh script that overrides the single-app wrapper.
+# This script starts Openbox, launches both applications, and forces them into a 50/50 tiled layout using wmctrl.
+RUN mkdir -p /config/defaults
+COPY <<-'EOF' /config/defaults/startwm.sh
+#!/bin/bash
+# Start Openbox window manager in the background
+openbox-session &
 
-# Launch Alacritty running Tmux on the left half (X: 0, Y: 0, Width: 50%, Height: 100%)
-alacritty --class "AlacrittyCustom" -e tmux &
+# Wait for X server to settle
+sleep 1
 
-# Launch FreeCAD on the right half (X: 50%, Y: 0, Width: 50%, Height: 100%)
+# Launch Alacritty running Tmux (Left side)
+alacritty -e tmux &
+
+# Launch FreeCAD (Right side)
 freecad &
+
+# Give windows time to draw, then resize and snap them side-by-side using wmctrl
+sleep 2
+
+# Get screen resolution dynamically or assume standard web streaming block
+# Snap Alacritty to Left (X=0, Y=0, Width=50% of 1920 -> 960, Height=1080)
+wmctrl -r "Alacritty" -e 0,0,0,960,1080
+# Snap FreeCAD to Right (X=960, Y=0, Width=960, Height=1080)
+wmctrl -r "FreeCAD" -e 0,960,0,960,1080
+
+# Keep script alive to maintain container session
+wait
 EOF
 
-# Override Openbox app rules to force borderless tiling layout for both apps
-COPY <<-'EOF' /config/.config/openbox/rc.xml
-<openbox_config>
-  <applications>
-    <application class="Alacritty">
-      <decor>no</decor>
-      <position force="yes"><x>0</x><y>0</y></position>
-      <size force="yes"><width>50%</width><height>100%</height></size>
-    </application>
-    <application class="FreeCAD">
-      <decor>no</decor>
-      <position force="yes"><x>50%</x><y>0</y></position>
-      <size force="yes"><width>50%</width><height>100%</height></size>
-    </application>
-  </applications>
-</openbox_config>
-EOF
-
-RUN chmod +x /config/.config/openbox/autostart
+RUN chmod +x /config/defaults/startwm.sh
