@@ -1,0 +1,48 @@
+#!/usr/bin/with-contenv bash
+# Runs as root on every container start, before the desktop services.
+# Everything that has to land in /config belongs here rather than in the
+# Dockerfile: /config is a volume, so build-time writes there are shadowed.
+
+as_abc() { s6-setuidgid abc env HOME=/config PATH="$PATH" "$@"; }
+
+# --- 1. seed user config, never clobbering edits the user has made ----------
+mkdir -p /config/workspace /config/.config/alacritty
+[ -f /config/.tmux.conf ] || cp /defaults/skel/.tmux.conf /config/.tmux.conf
+[ -f /config/.config/alacritty/alacritty.toml ] \
+    || cp /defaults/skel/.config/alacritty/alacritty.toml /config/.config/alacritty/alacritty.toml
+
+# --- 2. install the FreeCAD MCP addon into the right Mod directory ----------
+FC_BIN=""
+for c in freecadcmd FreeCADCmd; do
+    command -v "$c" >/dev/null 2>&1 && { FC_BIN="$c"; break; }
+done
+
+FC_USER_DIR=""
+if [ -n "$FC_BIN" ]; then
+    FC_USER_DIR=$(as_abc "$FC_BIN" /opt/freecad-userdir.py 2>/dev/null \
+                  | sed -n 's/^FCUSERDIR=//p' | tail -n1)
+fi
+[ -n "$FC_USER_DIR" ] || FC_USER_DIR="/config/.local/share/FreeCAD"
+
+MOD_DIR="${FC_USER_DIR%/}/Mod"
+mkdir -p "$MOD_DIR"
+
+if ! cmp -s /opt/freecad-mcp/.git-rev "$MOD_DIR/FreeCADMCP/.installed-rev"; then
+    echo "[freecad-claude] installing FreeCADMCP addon into $MOD_DIR"
+    rm -rf "$MOD_DIR/FreeCADMCP"
+    cp -r /opt/freecad-mcp/addon/FreeCADMCP "$MOD_DIR/FreeCADMCP"
+    cp /opt/freecad-mcp/.git-rev "$MOD_DIR/FreeCADMCP/.installed-rev"
+fi
+
+# --- 3. register the MCP server with Claude Code (user scope) ---------------
+# User scope lives in ~/.claude.json and needs no per-project approval prompt,
+# unlike a committed .mcp.json. `freecad-mcp` is already on PATH from the
+# build, so there is no uvx resolve on every start.
+if ! as_abc claude mcp get freecad >/dev/null 2>&1; then
+    echo "[freecad-claude] registering freecad MCP server"
+    as_abc claude mcp add --scope user freecad -- freecad-mcp || true
+fi
+
+# --- 4. ownership ----------------------------------------------------------
+lsiown -R abc:abc /config/workspace /config/.config "${FC_USER_DIR%/}" 2>/dev/null || true
+lsiown abc:abc /config/.tmux.conf 2>/dev/null || true

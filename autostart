@@ -1,0 +1,15 @@
+#!/bin/bash
+# Runs inside the Openbox session started by the Selkies baseimage.
+# We do NOT override startwm.sh — the base already gives us Openbox, and
+# replacing it means re-implementing session handling for no benefit.
+
+xset s off
+xset -dpms
+
+freecad &
+alacritty -e /usr/local/bin/claude-session &
+
+# Keeps the split correct, including when you resize the browser window.
+/usr/local/bin/tile-windows &
+
+wait

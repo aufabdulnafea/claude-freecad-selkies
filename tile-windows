@@ -1,0 +1,46 @@
+#!/bin/bash
+# Splits the screen between the terminal and FreeCAD.
+#
+# The original version hardcoded 1920x1080 and slept for a fixed 2s. Selkies
+# resizes the X display to whatever the browser viewport is and can resize it
+# again at any moment, so both assumptions break. This reads the real geometry
+# and re-tiles whenever it changes.
+
+SPLIT=${SPLIT_PERCENT:-38}          # width of the terminal pane, in percent
+TERM_CLASS=${TERM_CLASS:-Alacritty}
+CAD_CLASS=${CAD_CLASS:-FreeCAD}
+
+win_id() { xdotool search --class "^$1$" 2>/dev/null | tail -n1; }
+
+# Wait for both windows instead of guessing at a sleep duration.
+for _ in $(seq 1 120); do
+    [ -n "$(win_id "$TERM_CLASS")" ] && [ -n "$(win_id "$CAD_CLASS")" ] && break
+    sleep 0.5
+done
+
+tile() {
+    local sw=$1 sh=$2
+    local left=$(( sw * SPLIT / 100 ))
+    local right=$(( sw - left ))
+    local t c
+    t=$(win_id "$TERM_CLASS")
+    c=$(win_id "$CAD_CLASS")
+
+    for w in $t $c; do
+        wmctrl -i -r "$w" -b remove,maximized_horz,maximized_vert
+    done
+
+    [ -n "$t" ] && wmctrl -i -r "$t" -e "0,0,0,$left,$sh"
+    [ -n "$c" ] && wmctrl -i -r "$c" -e "0,$left,0,$right,$sh"
+}
+
+last=""
+while true; do
+    geo=$(xdotool getdisplaygeometry 2>/dev/null)
+    if [ -n "$geo" ] && [ "$geo" != "$last" ]; then
+        last="$geo"
+        sleep 0.4                      # let the WM settle after a resize
+        tile "${geo%% *}" "${geo##* }"
+    fi
+    sleep 2
+done

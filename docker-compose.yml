@@ -1,14 +1,33 @@
 services:
   freecad-claude:
     build: .
-    container_name: freecad-selkies-claude
+    container_name: freecad-claude
     ports:
-      - "3000:3000"
-    shm_size: '2gb'
+      - "3000:3000"   # http
+      - "3001:3001"   # https (self-signed)
+    volumes:
+      # Persists FreeCAD documents, the MCP addon settings, tmux/alacritty
+      # config and — importantly — the Claude Code login, so you only auth once.
+      - ./config:/config
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=Etc/UTC
-      - NO_FULL=true   # Prevents image from forcing the first window to full screen
-      - NO_DECOR=true  # Prevents image from forcing title bars on windows
+      - TZ=Europe/Berlin
+      - TITLE=FreeCAD + Claude
+      - NO_DECOR=true
+      # Auth: either drop an API key here, or leave it unset and run `/login`
+      # inside the terminal once — it persists in ./config.
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      # Basic auth on the web UI. Convenience only, not a security boundary.
+      - CUSTOM_USER=${WEB_USER:-abc}
+      - PASSWORD=${WEB_PASSWORD:-abc}
+    shm_size: '2gb'
+    # FreeCAD's Qt/OpenGL stack trips Docker's default seccomp profile on some
+    # kernels. Drop this line if it starts fine without it.
+    security_opt:
+      - seccomp:unconfined
+    # Uncomment for GPU-accelerated 3D + hardware encoding. Without it FreeCAD
+    # renders through llvmpipe, which works but is sluggish on complex models.
+    # devices:
+    #   - /dev/dri:/dev/dri
     restart: unless-stopped
