@@ -13,9 +13,6 @@ services:
       #   APP_MCP_NAME: ""
       #   APP_MCP_COMMAND: ""
     container_name: freecad-claude
-    ports:
-      - "3000:3000"   # http
-      - "3001:3001"   # https (self-signed)
     volumes:
       # ../files/ survives Dokploy's re-clone on redeploy; a path inside the
       # repo directory does not, and would take the documents, the Claude login
