@@ -1,4 +1,4 @@
-FROM linuxserver/baseimage-selkies:debianbookworm
+FROM lsiobase/selkies:debiantrixie
 
 # Environment settings
 ENV DEBIAN_FRONTEND=noninteractive \
