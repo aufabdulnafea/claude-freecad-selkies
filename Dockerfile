@@ -1,8 +1,15 @@
 # FreeCAD + Claude Code, streamed to the browser via Selkies.
 #
 # Pin the base image tag deliberately: the LinuxServer Selkies baseimages have
-# no :latest and breaking changes land between distro tags.
-FROM ghcr.io/linuxserver/baseimage-selkies:debiantrixie
+# no :latest and breaking changes land between distro tags. `debiantrixie` is
+# the current Debian tag.
+#
+# Docker Hub rather than ghcr.io: ghcr's token endpoint returns "denied: denied"
+# on hosts that have stale credentials cached for it, and this image needs no
+# auth anywhere. Equivalent mirrors if you prefer:
+#   lscr.io/linuxserver/baseimage-selkies:debiantrixie
+#   ghcr.io/linuxserver/baseimage-selkies:debiantrixie
+FROM lsiobase/selkies:debiantrixie
 
 ENV DEBIAN_FRONTEND=noninteractive \
     UV_TOOL_DIR=/opt/uv-tools \

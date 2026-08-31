@@ -14,7 +14,11 @@ services:
       - PGID=1000
       - TZ=Europe/Berlin
       - TITLE=FreeCAD + Claude
+      # No window borders, and don't auto-fullscreen one app over the other —
+      # auto-fullscreen fights the side-by-side tiling.
+      # Borders can be toggled back on in-session with Ctrl+Shift+d.
       - NO_DECOR=true
+      - NO_FULL=true
       # Auth: either drop an API key here, or leave it unset and run `/login`
       # inside the terminal once — it persists in ./config.
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
@@ -26,8 +30,11 @@ services:
     # kernels. Drop this line if it starts fine without it.
     security_opt:
       - seccomp:unconfined
-    # Uncomment for GPU-accelerated 3D + hardware encoding. Without it FreeCAD
-    # renders through llvmpipe, which works but is sluggish on complex models.
+    # GPU note: upstream has stopped developing X11 acceleration and now steers
+    # GPU users to `PIXELFLUX_WAYLAND=true`. That swaps Openbox for Labwc, which
+    # breaks wmctrl/xdotool — so tile-windows would need rewriting against the
+    # Labwc IPC. Staying on X11 means FreeCAD renders via llvmpipe: fine for
+    # sketches and modest parts, sluggish on heavy assemblies.
     # devices:
     #   - /dev/dri:/dev/dri
     restart: unless-stopped
