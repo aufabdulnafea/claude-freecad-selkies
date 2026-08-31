@@ -1,4 +1,5 @@
 FROM lsiobase/selkies:debiantrixie
+
 ENV DEBIAN_FRONTEND=noninteractive \
     HOME=/config
 
@@ -40,12 +41,12 @@ COPY <<-'EOF' /config/.claude/config.json
 }
 EOF
 
-# 5. Configure Alacritty for a minimal, beautiful dark aesthetic
+# 5. Configure Alacritty with zero window borders and sleek dark look
 RUN mkdir -p /config/.config/alacritty
 COPY <<-'EOF' /config/.config/alacritty/alacritty.toml
 [window]
 decorations = "None"
-opacity = 0.95
+opacity = 0.98
 
 [font]
 size = 11.0
@@ -57,75 +58,44 @@ background = "#1e1e2e"
 foreground = "#cdd6f4"
 EOF
 
-# 6. Configure Tmux to split horizontally: Left pane runs Claude, Right pane can run tools or logs
+# 6. Configure Tmux to host Claude without any status bars
 RUN mkdir -p /config
 COPY <<-'EOF' /config/.tmux.conf
 set -g mouse on
 set -g status off
-# Start a session with Claude on the left
 new-session -d 'claude'
 EOF
 
+# 7. Custom Openbox autostart script that bypasses single-app fullscreen enforcement 
+# and explicitly coordinates dual-window side-by-side geometry placement.
 RUN mkdir -p /config/.config/openbox
+COPY <<-'EOF' /config/.config/openbox/autostart
+# Kill any lingering defaults if applicable
+pkill openbox-window-wrapper || true
+
+# Launch Alacritty running Tmux on the left half (X: 0, Y: 0, Width: 50%, Height: 100%)
+alacritty --class "AlacrittyCustom" -e tmux &
+
+# Launch FreeCAD on the right half (X: 50%, Y: 0, Width: 50%, Height: 100%)
+freecad &
+EOF
+
+# Override Openbox app rules to force borderless tiling layout for both apps
 COPY <<-'EOF' /config/.config/openbox/rc.xml
 <openbox_config>
   <applications>
     <application class="Alacritty">
       <decor>no</decor>
-      <position force="yes">
-        <x>0</x>
-        <y>0</y>
-      </position>
-      <size force="yes">
-        <width>50%</width>
-        <height>100%</height>
-      </size>
+      <position force="yes"><x>0</x><y>0</y></position>
+      <size force="yes"><width>50%</width><height>100%</height></size>
     </application>
     <application class="FreeCAD">
       <decor>no</decor>
-      <position force="yes">
-        <x>50%</x>
-        <y>0</y>
-      </position>
-      <size force="yes">
-        <width>50%</width>
-        <height>100%</height>
-      </size>
+      <position force="yes"><x>50%</x><y>0</y></position>
+      <size force="yes"><width>50%</width><height>100%</height></size>
     </application>
   </applications>
 </openbox_config>
 EOF
 
-COPY <<-'EOF' /config/.config/openbox/autostart
-# Launch Alacritty running Tmux (will snap to left 50%)
-alacritty -e tmux &
-
-# Launch FreeCAD (will snap to right 50%)
-freecad &
-EOF
-
 RUN chmod +x /config/.config/openbox/autostart
-# 7. Configure Openbox to remove window decorations and tile Alacritty + FreeCAD borderlessly
-# RUN mkdir -p /config/.config/openbox
-# COPY <<-'EOF' /config/.config/openbox/rc.xml
-# <openbox_config>
-#   <applications>
-#     <application class="Alacritty">
-#       <decor>no</decor>
-#     </application>
-#     <application class="FreeCAD">
-#       <decor>no</decor>
-#     </application>
-#   </applications>
-# </openbox_config>
-# EOF
-
-# COPY <<-'EOF' /config/.config/openbox/autostart
-# # Launch Alacritty running Tmux (occupying left side or full screen split)
-# alacritty --geometry 120x50 -e tmux &
-
-# # Launch FreeCAD borderless on the right
-# freecad &
-# EOF
-
-# RUN chmod +x /config/.config/openbox/autostart

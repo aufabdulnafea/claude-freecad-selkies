@@ -4,9 +4,11 @@ services:
     container_name: freecad-selkies-claude
     ports:
       - "3000:3000"
-    shm_size: '1gb'
+    shm_size: '2gb'
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=Etc/UTC
+      - NO_FULL=true
+      - NO_DECOR=true
     restart: unless-stopped
