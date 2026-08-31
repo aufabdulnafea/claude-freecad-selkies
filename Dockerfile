@@ -66,27 +66,66 @@ set -g status off
 new-session -d 'claude'
 EOF
 
-# 7. Configure Openbox to remove window decorations and tile Alacritty + FreeCAD borderlessly
 RUN mkdir -p /config/.config/openbox
 COPY <<-'EOF' /config/.config/openbox/rc.xml
 <openbox_config>
   <applications>
     <application class="Alacritty">
       <decor>no</decor>
+      <position force="yes">
+        <x>0</x>
+        <y>0</y>
+      </position>
+      <size force="yes">
+        <width>50%</width>
+        <height>100%</height>
+      </size>
     </application>
     <application class="FreeCAD">
       <decor>no</decor>
+      <position force="yes">
+        <x>50%</x>
+        <y>0</y>
+      </position>
+      <size force="yes">
+        <width>50%</width>
+        <height>100%</height>
+      </size>
     </application>
   </applications>
 </openbox_config>
 EOF
 
 COPY <<-'EOF' /config/.config/openbox/autostart
-# Launch Alacritty running Tmux (occupying left side or full screen split)
-alacritty --geometry 120x50 -e tmux &
+# Launch Alacritty running Tmux (will snap to left 50%)
+alacritty -e tmux &
 
-# Launch FreeCAD borderless on the right
+# Launch FreeCAD (will snap to right 50%)
 freecad &
 EOF
 
 RUN chmod +x /config/.config/openbox/autostart
+# 7. Configure Openbox to remove window decorations and tile Alacritty + FreeCAD borderlessly
+# RUN mkdir -p /config/.config/openbox
+# COPY <<-'EOF' /config/.config/openbox/rc.xml
+# <openbox_config>
+#   <applications>
+#     <application class="Alacritty">
+#       <decor>no</decor>
+#     </application>
+#     <application class="FreeCAD">
+#       <decor>no</decor>
+#     </application>
+#   </applications>
+# </openbox_config>
+# EOF
+
+# COPY <<-'EOF' /config/.config/openbox/autostart
+# # Launch Alacritty running Tmux (occupying left side or full screen split)
+# alacritty --geometry 120x50 -e tmux &
+
+# # Launch FreeCAD borderless on the right
+# freecad &
+# EOF
+
+# RUN chmod +x /config/.config/openbox/autostart
