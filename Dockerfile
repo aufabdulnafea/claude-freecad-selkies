@@ -68,39 +68,157 @@ set -g status off
 new-session -d 'claude'
 EOF
 
-# 7. Override the image's single-app entrypoint completely by providing a custom startwm.sh 
-# This forces Openbox to run as a clean desktop session, spawning both applications side-by-side borderless.
-RUN mkdir -p /config/defaults
-COPY <<-'EOF' /config/defaults/startwm.sh
-#!/bin/bash
+# 7. Configure Openbox to remove window decorations globally and force a tiling layout.
+# This replaces the default Openbox config that Selkies provides.
+RUN mkdir -p /config/.config/openbox
 
-# Disable screen blanking / power saving
-xset s off
-xset -dpms
+# This rc.xml instructs Openbox to remove borders/buttons for Alacritty and FreeCAD,
+# and force them to specific screen positions and sizes (50% width each).
+COPY <<-'EOF' /config/.config/openbox/rc.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_config xmlns="http://openbox.org/3.4/rc" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <resistance>
+    <strength>10</strength>
+    <screen_edge_strength>20</screen_edge_strength>
+  </resistance>
+  <focus>
+    <focusNew>yes</focusNew>
+    <followMouse>no</followMouse>
+    <underMouse>no</underMouse>
+    <desktopMouse>no</desktopMouse>
+    <jumpToDesk>yes</jumpToDesk>
+    <failOnNewWindow>no</failOnNewWindow>
+  </focus>
+  <placement>
+    <policy>Smart</policy>
+    <center>yes</center>
+    <monitor>Active</monitor>
+    <primaryMonitor>1</primaryMonitor>
+  </placement>
+  <theme>
+    <name>Clearlooks</name>
+    <titleLayout>NLIMC</titleLayout>
+    <keepBorder>no</keepBorder>
+    <animateIconify>no</animateIconify>
+    <font place="ActiveWindow">
+      <name>Sans</name>
+      <size>8</size>
+      <weight>bold</weight>
+      <slant>normal</slant>
+    </font>
+    <font place="InactiveWindow">
+      <name>Sans</name>
+      <size>8</size>
+      <weight>normal</weight>
+      <slant>normal</slant>
+    </font>
+    <font place="MenuHeader">
+      <name>Sans</name>
+      <size>9</size>
+      <weight>bold</weight>
+      <slant>normal</slant>
+    </font>
+    <font place="MenuItem">
+      <name>Sans</name>
+      <size>9</size>
+      <weight>normal</weight>
+      <slant>normal</slant>
+    </font>
+    <font place="OnScreenDisplay">
+      <name>Sans</name>
+      <size>9</size>
+      <weight>bold</weight>
+      <slant>normal</slant>
+    </font>
+  </theme>
+  <desktops>
+    <number>1</number>
+    <firstdesk>1</firstdesk>
+    <names>
+      <desktop>desktop1</desktop>
+    </names>
+    <popupTime>0</popupTime>
+  </desktops>
+  <resize>
+    <drawContents>yes</drawContents>
+    <popup>Always</popup>
+    <unit>Pixel</unit>
+  </resize>
+  <margins>
+    <top>0</top>
+    <bottom>0</bottom>
+    <left>0</left>
+    <right>0</right>
+  </margins>
+  <dock>
+    <position>TopLeft</position>
+    <floatingX>0</floatingX>
+    <floatingY>0</floatingY>
+    <noStrut>no</noStrut>
+    <stacking>Above</stacking>
+    <direction>Vertical</direction>
+    <autoHide>no</autoHide>
+    <moveButton>Middle</moveButton>
+    <cornerRadius>0</cornerRadius>
+    <screenEdgeWarp>no</screenEdgeWarp>
+  </dock>
+  <keyboard>
+    <chainQuitKey>C-g</chainQuitKey>
+  </keyboard>
+  <mouse>
+    <dragThreshold>1</dragThreshold>
+    <doubleClickTime>500</doubleClickTime>
+    <screenEdgeWarp>no</screenEdgeWarp>
+  </mouse>
+  <menu>
+    <hideOnDelay>500</hideOnDelay>
+    <middle>no</middle>
+    <submenuShowDelay>100</submenuShowDelay>
+    <applicationIcons>yes</applicationIcons>
+    <manageDesktops>yes</manageDesktops>
+  </menu>
+  <applications>
+    <!-- TILE ALACRITTY ON THE LEFT AND REMOVE BORDERS -->
+    <application class="Alacritty">
+      <decor>no</decor>
+      <position force="yes">
+        <x>0</x>
+        <y>0</y>
+        <monitor>primary</monitor>
+      </position>
+      <size force="yes">
+        <width>50%</width>
+        <height>100%</height>
+      </size>
+    </application>
+    <!-- TILE FREECAD ON THE RIGHT AND REMOVE BORDERS -->
+    <application class="FreeCAD">
+      <decor>no</decor>
+      <position force="yes">
+        <x>-0</x>
+        <y>0</y>
+        <monitor>primary</monitor>
+        <head>primary</head>
+      </position>
+      <size force="yes">
+        <width>50%</width>
+        <height>100%</height>
+      </size>
+    </application>
+  </applications>
+</openbox_config>
+EOF
 
-# Start Openbox window manager
-openbox-session &
-
-# Wait for X display to initialize
-sleep 1
+# This autostart script launches the two applications, Openbox will handle positioning based on rc.xml
+COPY <<-'EOF' /config/.config/openbox/autostart
+# Kill any Openbox wrappers the image might attempt to start
+pkill openbox-window-wrapper || true
 
 # Launch Alacritty running Tmux (Claude)
 alacritty -e tmux &
 
 # Launch FreeCAD
 freecad &
-
-# Give windows a moment to spawn, then use wmctrl to strip any remaining decorations and snap side-by-side
-sleep 2
-wmctrl -r "Alacritty" -b remove,maximized_horz,maximized_vert
-wmctrl -r "FreeCAD" -b remove,maximized_horz,maximized_vert
-
-# Resize to exact split dimensions (assuming default 1920x1080 stream resolution)
-wmctrl -r "Alacritty" -e 0,0,0,960,1080
-wmctrl -r "FreeCAD" -e 0,960,0,960,1080
-
-# Keep the session alive
-wait
 EOF
 
-RUN chmod +x /config/defaults/startwm.sh
+RUN chmod +x /config/.config/openbox/autostart

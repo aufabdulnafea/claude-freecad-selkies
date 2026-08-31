@@ -9,6 +9,6 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=Etc/UTC
-      - NO_FULL=true
-      - NO_DECOR=true
+      - NO_FULL=true   # Prevents image from forcing the first window to full screen
+      - NO_DECOR=true  # Prevents image from forcing title bars on windows
     restart: unless-stopped
