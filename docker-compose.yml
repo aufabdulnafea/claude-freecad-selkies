@@ -2,9 +2,6 @@ services:
   freecad-claude:
     build: .
     container_name: freecad-claude
-    ports:
-      - "3000:3000"   # http
-      - "3001:3001"   # https (self-signed)
     volumes:
       # Persists FreeCAD documents, the MCP addon settings, tmux/alacritty
       # config and — importantly — the Claude Code login, so you only auth once.
