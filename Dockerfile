@@ -19,7 +19,10 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 # ---------------------------------------------------------------------------
 # 1. System packages
-#    Debian trixie already ships Node 20 and FreeCAD 1.x, so no NodeSource repo.
+#    No NodeSource repo needed: the Selkies base already has one configured, so
+#    `nodejs` here resolves to NodeSource 22. Do NOT also ask for `npm` —
+#    NodeSource's nodejs bundles npm and Conflicts: with Debian's npm package,
+#    which makes the two together unsatisfiable.
 # ---------------------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
         freecad \
@@ -27,7 +30,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python3-pip \
         python3-venv \
         nodejs \
-        npm \
         alacritty \
         tmux \
         git \
