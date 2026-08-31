@@ -1,7 +1,6 @@
 FROM lsiobase/selkies:debiantrixie
 
 # Environment settings
-FROM linuxserver/baseimage-selkies:debianbookworm
 
 ENV DEBIAN_FRONTEND=noninteractive \
     HOME=/config
