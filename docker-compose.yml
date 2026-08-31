@@ -8,7 +8,9 @@ services:
     volumes:
       # Persists FreeCAD documents, the MCP addon settings, tmux/alacritty
       # config and — importantly — the Claude Code login, so you only auth once.
-      - ./config:/config
+      # ../files/ is preserved by Dokploy across redeploys; ./config would be
+      # wiped on every git re-clone, taking your documents and Claude login.
+      - ../files/config:/config
     environment:
       - PUID=1000
       - PGID=1000
