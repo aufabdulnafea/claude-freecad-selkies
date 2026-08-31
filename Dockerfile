@@ -68,33 +68,38 @@ set -g status off
 new-session -d 'claude'
 EOF
 
-# 7. Provide a custom startwm.sh script that overrides the single-app wrapper.
-# This script starts Openbox, launches both applications, and forces them into a 50/50 tiled layout using wmctrl.
+# 7. Override the image's single-app entrypoint completely by providing a custom startwm.sh 
+# This forces Openbox to run as a clean desktop session, spawning both applications side-by-side borderless.
 RUN mkdir -p /config/defaults
 COPY <<-'EOF' /config/defaults/startwm.sh
 #!/bin/bash
-# Start Openbox window manager in the background
+
+# Disable screen blanking / power saving
+xset s off
+xset -dpms
+
+# Start Openbox window manager
 openbox-session &
 
-# Wait for X server to settle
+# Wait for X display to initialize
 sleep 1
 
-# Launch Alacritty running Tmux (Left side)
+# Launch Alacritty running Tmux (Claude)
 alacritty -e tmux &
 
-# Launch FreeCAD (Right side)
+# Launch FreeCAD
 freecad &
 
-# Give windows time to draw, then resize and snap them side-by-side using wmctrl
+# Give windows a moment to spawn, then use wmctrl to strip any remaining decorations and snap side-by-side
 sleep 2
+wmctrl -r "Alacritty" -b remove,maximized_horz,maximized_vert
+wmctrl -r "FreeCAD" -b remove,maximized_horz,maximized_vert
 
-# Get screen resolution dynamically or assume standard web streaming block
-# Snap Alacritty to Left (X=0, Y=0, Width=50% of 1920 -> 960, Height=1080)
+# Resize to exact split dimensions (assuming default 1920x1080 stream resolution)
 wmctrl -r "Alacritty" -e 0,0,0,960,1080
-# Snap FreeCAD to Right (X=960, Y=0, Width=960, Height=1080)
 wmctrl -r "FreeCAD" -e 0,960,0,960,1080
 
-# Keep script alive to maintain container session
+# Keep the session alive
 wait
 EOF
 
