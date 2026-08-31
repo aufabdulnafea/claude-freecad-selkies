@@ -1,46 +1,78 @@
 #!/bin/bash
-# Splits the screen between the terminal and FreeCAD.
+# Side-by-side layout for the terminal and the app window.
 #
-# The original version hardcoded 1920x1080 and slept for a fixed 2s. Selkies
-# resizes the X display to whatever the browser viewport is and can resize it
-# again at any moment, so both assumptions break. This reads the real geometry
-# and re-tiles whenever it changes.
+# Reads _NET_WORKAREA rather than the raw display size, so the panel's strut is
+# respected automatically and windows are never placed underneath it. Selkies
+# resizes the X display to the browser viewport at any time, so this watches for
+# changes instead of assuming a fixed resolution.
+#
+#   tile-windows          run as a daemon, re-tiling on geometry change
+#   tile-windows --once   tile immediately and exit  (aliased to `retile`)
 
-SPLIT=${SPLIT_PERCENT:-38}          # width of the terminal pane, in percent
-TERM_CLASS=${TERM_CLASS:-Alacritty}
-CAD_CLASS=${CAD_CLASS:-FreeCAD}
+SPLIT=${SPLIT_PERCENT:-38}
+TERM_CLASS=${TERM_WM_CLASS:-Alacritty}
+CAD_CLASS=${APP_WM_CLASS:-}
 
-win_id() { xdotool search --class "^$1$" 2>/dev/null | tail -n1; }
+win_id() {
+    [ -n "$1" ] || return 1
+    xdotool search --onlyvisible --class "^$1$" 2>/dev/null | tail -n1
+}
 
-# Wait for both windows instead of guessing at a sleep duration.
+workarea() {
+    # _NET_WORKAREA(CARDINAL) = 0, 0, 1920, 1046, ...   (x, y, w, h per desktop)
+    local raw
+    raw=$(xprop -root _NET_WORKAREA 2>/dev/null | sed 's/.*= *//')
+    if [ -n "$raw" ]; then
+        echo "$raw" | awk -F'[,[:space:]]+' '{print $1, $2, $3, $4}'
+        return
+    fi
+    local geo
+    geo=$(xdotool getdisplaygeometry 2>/dev/null) || return 1
+    echo "0 0 ${geo%% *} ${geo##* }"
+}
+
+tile() {
+    local x=$1 y=$2 w=$3 h=$4
+    local left=$(( w * SPLIT / 100 ))
+    local right=$(( w - left ))
+    local t c
+    t=$(win_id "$TERM_CLASS")
+    c=$(win_id "$CAD_CLASS")
+
+    for win in $t $c; do
+        wmctrl -i -r "$win" -b remove,maximized_horz,maximized_vert
+    done
+
+    if [ -n "$t" ] && [ -n "$c" ]; then
+        wmctrl -i -r "$t" -e "0,$x,$y,$left,$h"
+        wmctrl -i -r "$c" -e "0,$((x + left)),$y,$right,$h"
+    elif [ -n "$t" ]; then
+        wmctrl -i -r "$t" -e "0,$x,$y,$w,$h"
+    elif [ -n "$c" ]; then
+        wmctrl -i -r "$c" -e "0,$x,$y,$w,$h"
+    fi
+}
+
+if [ "${1:-}" = "--once" ]; then
+    # shellcheck disable=SC2046
+    tile $(workarea)
+    exit 0
+fi
+
+# Wait for the windows to appear rather than guessing at a sleep duration.
 for _ in $(seq 1 120); do
     [ -n "$(win_id "$TERM_CLASS")" ] && [ -n "$(win_id "$CAD_CLASS")" ] && break
     sleep 0.5
 done
 
-tile() {
-    local sw=$1 sh=$2
-    local left=$(( sw * SPLIT / 100 ))
-    local right=$(( sw - left ))
-    local t c
-    t=$(win_id "$TERM_CLASS")
-    c=$(win_id "$CAD_CLASS")
-
-    for w in $t $c; do
-        wmctrl -i -r "$w" -b remove,maximized_horz,maximized_vert
-    done
-
-    [ -n "$t" ] && wmctrl -i -r "$t" -e "0,0,0,$left,$sh"
-    [ -n "$c" ] && wmctrl -i -r "$c" -e "0,$left,0,$right,$sh"
-}
-
 last=""
 while true; do
-    geo=$(xdotool getdisplaygeometry 2>/dev/null)
-    if [ -n "$geo" ] && [ "$geo" != "$last" ]; then
-        last="$geo"
-        sleep 0.4                      # let the WM settle after a resize
-        tile "${geo%% *}" "${geo##* }"
+    now=$(workarea)
+    if [ -n "$now" ] && [ "$now" != "$last" ]; then
+        last="$now"
+        sleep 0.4          # let the WM settle after a resize
+        # shellcheck disable=SC2086
+        tile $now
     fi
     sleep 2
 done

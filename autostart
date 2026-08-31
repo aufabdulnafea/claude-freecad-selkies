@@ -1,15 +1,37 @@
 #!/bin/bash
-# Runs inside the Openbox session started by the Selkies baseimage.
-# We do NOT override startwm.sh — the base already gives us Openbox, and
-# replacing it means re-implementing session handling for no benefit.
+# Openbox session contents. The Selkies baseimage starts Openbox and execs this;
+# we deliberately do not replace startwm.sh, which would mean reimplementing
+# session handling for no gain.
+set -u
+
+WORKSPACE="${WORKSPACE_DIR:-/config/workspace}"
+export XDG_CONFIG_HOME=/config/.config
+export XDG_DATA_HOME=/config/.local/share
+# GTK apps and GTK-backed Qt dialogs. Qt widget styling is left to the app
+# layer: forcing QT_STYLE_OVERRIDE globally fights apps that ship their own
+# stylesheet (FreeCAD, KiCad, Blender all do).
+export GTK_THEME="${GTK_THEME:-Adwaita:dark}"
 
 xset s off
 xset -dpms
+xsetroot -solid "${DESKTOP_BG:-#11111b}"
 
-freecad &
+mkdir -p "$WORKSPACE"
+cd "$WORKSPACE" 2>/dev/null || cd /config
+
+# Panel and keybindings are optional: a missing package degrades the session
+# rather than killing it.
+command -v tint2     >/dev/null 2>&1 && tint2 &
+command -v xbindkeys >/dev/null 2>&1 && xbindkeys &
+
 alacritty -e /usr/local/bin/claude-session &
 
-# Keeps the split correct, including when you resize the browser window.
+if [ -n "${APP_EXEC:-}" ]; then
+    # Launched from the workspace so the app's open/save dialogs default to the
+    # same directory Claude is working in.
+    $APP_EXEC &
+fi
+
 /usr/local/bin/tile-windows &
 
 wait

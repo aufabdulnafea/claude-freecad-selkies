@@ -1,0 +1,50 @@
+#!/usr/bin/with-contenv bash
+# Runs as root on every start, before the desktop services.
+#
+# Everything destined for /config belongs here, not in the Dockerfile: /config
+# is the runtime volume, so build-time writes there are shadowed the moment a
+# volume is mounted.
+
+WORKSPACE="${WORKSPACE_DIR:-/config/workspace}"
+as_abc() { s6-setuidgid abc env HOME=/config PATH="$PATH" "$@"; }
+
+# --- 1. seed user config, never clobbering the user's own edits -------------
+if [ -d /defaults/skel ]; then
+    find /defaults/skel -type f | while read -r src; do
+        dst="/config/${src#/defaults/skel/}"
+        if [ ! -e "$dst" ]; then
+            mkdir -p "$(dirname "$dst")"
+            cp "$src" "$dst"
+        fi
+    done
+fi
+
+mkdir -p "$WORKSPACE"
+
+# --- 2. panel launcher for whichever app this image was built around --------
+# tint2rc references a fixed path so the panel config stays app-agnostic.
+if [ -n "${APP_DESKTOP_FILE:-}" ] && [ -f "$APP_DESKTOP_FILE" ]; then
+    ln -sf "$APP_DESKTOP_FILE" /usr/share/applications/selkies-app.desktop
+fi
+
+# --- 3. app-specific setup --------------------------------------------------
+if [ -x /opt/app/init.sh ]; then
+    echo "[session] running app init hook"
+    /opt/app/init.sh || echo "[session] app init hook failed (continuing)"
+fi
+
+# --- 4. register the MCP server with Claude Code ----------------------------
+# User scope lives in ~/.claude.json and needs no per-project approval prompt,
+# unlike a committed .mcp.json.
+if [ -n "${APP_MCP_NAME:-}" ] && [ -n "${APP_MCP_COMMAND:-}" ]; then
+    if ! as_abc claude mcp get "$APP_MCP_NAME" >/dev/null 2>&1; then
+        echo "[session] registering MCP server: $APP_MCP_NAME"
+        # shellcheck disable=SC2086
+        as_abc claude mcp add --scope user "$APP_MCP_NAME" -- $APP_MCP_COMMAND \
+            || echo "[session] MCP registration failed (continuing)"
+    fi
+fi
+
+# --- 5. ownership -----------------------------------------------------------
+lsiown -R abc:abc /config/.config /config/.local "$WORKSPACE" 2>/dev/null || true
+lsiown abc:abc /config/.tmux.conf /config/.gtkrc-2.0 /config/.xbindkeysrc 2>/dev/null || true

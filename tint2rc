@@ -1,0 +1,66 @@
+# Panel for the Selkies desktop session. Colours match the terminal palette.
+# strut_policy = follow_size publishes _NET_WORKAREA, which tile-windows reads,
+# so the panel and the tiling stay consistent without hardcoded offsets.
+
+# background 1 — panel
+rounded = 0
+border_width = 0
+background_color = #11111b 100
+border_color = #11111b 100
+
+# background 2 — inactive task
+rounded = 4
+border_width = 0
+background_color = #313244 100
+border_color = #313244 100
+
+# background 3 — active task
+rounded = 4
+border_width = 0
+background_color = #89b4fa 100
+border_color = #89b4fa 100
+
+panel_monitor = all
+panel_position = bottom center horizontal
+panel_size = 100% 34
+panel_margin = 0 0
+panel_padding = 6 4 8
+panel_background_id = 1
+panel_layer = top
+panel_dock = 0
+wm_menu = 1
+strut_policy = follow_size
+
+launcher_padding = 2 0 8
+launcher_background_id = 0
+launcher_icon_size = 22
+launcher_tooltip = 1
+launcher_item_app = /usr/share/applications/claude-terminal.desktop
+launcher_item_app = /usr/share/applications/selkies-app.desktop
+
+taskbar_mode = single_desktop
+taskbar_padding = 2 0 6
+taskbar_background_id = 0
+task_text = 1
+task_icon = 1
+task_maximum_size = 240 26
+task_padding = 8 3 6
+task_background_id = 2
+task_active_background_id = 3
+task_font = sans 9
+task_font_color = #cdd6f4 100
+task_active_font_color = #11111b 100
+
+systray_padding = 4 0 6
+systray_background_id = 0
+systray_icon_size = 20
+
+time1_format = %H:%M
+time1_font = sans 9
+clock_font_color = #cdd6f4 100
+clock_padding = 10 0
+clock_background_id = 0
+
+tooltip_padding = 6 4
+tooltip_background_id = 2
+tooltip_font_color = #cdd6f4 100
